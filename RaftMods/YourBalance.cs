@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 [ModTitle("YourBalance")]
 [ModDescription("Customize gameplay options at will")]
-[ModAuthor("JuniperBug, Akitake")]
+[ModAuthor("Akitake")]
 [ModIconUrl("https://i.imgur.com/IJ8lgzF.png")]
 [ModWallpaperUrl("https://i.imgur.com/oJn8uZi.png")]
 [ModVersion("2.0.0")]
@@ -37,7 +37,6 @@ public class YourBalance : Mod
     private List<Slider> UI_sliders = new List<Slider>();
     private List<Text> UI_slidersText = new List<Text>();
     private List<Toggle> UI_checkboxes = new List<Toggle>();
-
 
     // Defaults
     private Dictionary<int, int> defaultStackSizes = new Dictionary<int, int>();
