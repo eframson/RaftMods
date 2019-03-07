@@ -18,21 +18,23 @@ using UnityEngine.UI;
 public class BetterMovement : Mod
 {
     #region Variables
+    public static BetterMovement instance;
+
     // Harmony
     public HarmonyInstance harmony;
-    public readonly string harmonyID = "com.github.akitakekun.bettermovement";
+    public readonly string harmonyID = "com.github.akitakekun.raftmods.bettermovement";
 
     // Settings
     private ModSettings settings;
     private string settingsPath;
 
-    // Bundles
+    // Bundle
     private AssetBundle menuBundle;
     private GameObject menu;
 
     // Console stuff
-    private static Color modColor = new Color(0, 176, 254);
-    private static string modPrefix = "[" + Utils.Colorize("BetterMovement", modColor) + "] ";
+    public static string modColor = "#4CB0FE";
+    public static string modPrefix = "[" + Utils.Colorize("BetterMovement", modColor) + "] ";
 
     // Misc
     private Semih_Network network = ComponentManager<Semih_Network>.Value;
@@ -41,6 +43,9 @@ public class BetterMovement : Mod
 
     public void Start()
     {
+        if (instance != null) { throw new Exception("BetterMovement singleton was already set"); }
+        instance = this;
+
         harmony = HarmonyInstance.Create(harmonyID);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
 
@@ -95,7 +100,7 @@ public class BetterMovement : Mod
         {
             if (!Utils.IsBool(args[1]))
             {
-                RConsole.Log(modPrefix + Utils.Colorize(args[1] + " is not a valid argument", 255));
+                RConsole.Log(modPrefix + Utils.Colorize(args[1] + " is not a valid argument", "#FF0000"));
                 return;
             }
             bool arg = Utils.Bool(args[1], settings.crouchIsToggle);
@@ -116,7 +121,7 @@ public class BetterMovement : Mod
             RConsole.Log(args[1]);
             if (!Utils.IsBool(args[1]))
             {
-                RConsole.Log(modPrefix + Utils.Colorize(args[1] + " is not a valid argument", 255));
+                RConsole.Log(modPrefix + Utils.Colorize(args[1] + " is not a valid argument", "#FF0000"));
                 return;
             }
             bool arg = Utils.Bool(args[1], settings.crouchIsToggle);
@@ -148,32 +153,13 @@ public class BetterMovement : Mod
         }
         catch
         {
-            RConsole.Log(modPrefix + Utils.Colorize("Settings were unable to be saved to file" + settingsPath, 255));
+            RConsole.Log(modPrefix + Utils.Colorize("Settings were unable to be saved to file" + settingsPath, "#FF0000"));
         }
     }
 }
 #endregion
 
 #region Child Classes
-[Serializable]
-public class ModSettings
-{
-    public bool sprintByDefault;
-    public bool crouchIsToggle;
-
-    public ModSettings()
-    {
-        sprintByDefault = false;
-        crouchIsToggle = false;
-    }
-
-    public ModSettings(ModSettings clone)
-    {
-        sprintByDefault = clone.sprintByDefault;
-        crouchIsToggle = clone.crouchIsToggle;
-    }
-}
-
 public class Utils
 {
     private static List<string> positiveBools = new List<string>() { "true", "1", "yes", "y" };
@@ -198,30 +184,39 @@ public class Utils
     }
     #endregion
 
-    #region Colorize variants
-    public static string Colorize(string text, int r = 0, int g = 0, int b = 0)
+    #region Colorize
+    public static string Colorize(string text, string col)
     {
-        return string.Concat(new string[]
+        string s = string.Concat(new string[]
         {
-            "<color=#",
-            ColorUtility.ToHtmlStringRGB(new Color(r, g, b)),
+            "<color=",
+            col,
             ">",
             text,
             "</color>"
         });
-    }
-    public static string Colorize(string text, Color col)
-    {
-        return string.Concat(new string[]
-        {
-            "<color=#",
-            ColorUtility.ToHtmlStringRGB(col),
-            ">",
-            text,
-            "</color>"
-        });
+        return s;
     }
     #endregion
+}
+
+[Serializable]
+public class ModSettings
+{
+    public bool sprintByDefault;
+    public bool crouchIsToggle;
+
+    public ModSettings()
+    {
+        sprintByDefault = false;
+        crouchIsToggle = false;
+    }
+
+    public ModSettings(ModSettings clone)
+    {
+        sprintByDefault = clone.sprintByDefault;
+        crouchIsToggle = clone.crouchIsToggle;
+    }
 }
 #endregion
 
