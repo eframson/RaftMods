@@ -223,6 +223,7 @@ public class YourBalance : Mod
     }
     public void ShowUI()
     {
+        RefreshUI();
         menu.SetActive(true);
         newSettings = new ModSettings(settings);
         hideMenu = false;
@@ -231,6 +232,7 @@ public class YourBalance : Mod
     }
     public void HideUI()
     {
+        RefreshUI();
         menu.SetActive(false);
         Helper.SetCursorVisibleAndLockState(false, CursorLockMode.Locked);
         newSettings = new ModSettings(settings);
