@@ -33,10 +33,11 @@ public class YourBalance : Mod
 
     // Bundle
     private AssetBundle menuBundle;
-    private GameObject menu;
+    private GameObject menu = null;
     private List<Slider> UI_sliders = new List<Slider>();
     private List<Text> UI_slidersText = new List<Text>();
     private List<Toggle> UI_checkboxes = new List<Toggle>();
+
 
     // Defaults
     private Dictionary<int, int> defaultStackSizes = new Dictionary<int, int>();
@@ -65,7 +66,7 @@ public class YourBalance : Mod
         harmony = HarmonyInstance.Create(harmonyID);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-        settingsPath = Directory.GetCurrentDirectory() + "/mods/ModData/YourBalance.json";
+        settingsPath = Directory.GetCurrentDirectory() + "\\mods\\ModData\\YourBalance.json";
         settings = LoadSettings();
         if (SceneManager.GetActiveScene().name == network.gameSceneName)
             StartCoroutine(ForceSettings());
@@ -113,6 +114,7 @@ public class YourBalance : Mod
     public void Update()
     {
         if (SceneManager.GetActiveScene().name != network.gameSceneName) { return; }
+        if (menu == null) { return; }
         if (Input.GetKeyDown(KeyCode.F11))
         {
             if (hideMenu)
@@ -222,7 +224,6 @@ public class YourBalance : Mod
     }
     public void ShowUI()
     {
-        RefreshUI();
         menu.SetActive(true);
         newSettings = new ModSettings(settings);
         hideMenu = false;
@@ -231,12 +232,12 @@ public class YourBalance : Mod
     }
     public void HideUI()
     {
-        RefreshUI();
         menu.SetActive(false);
         Helper.SetCursorVisibleAndLockState(false, CursorLockMode.Locked);
         newSettings = new ModSettings(settings);
         hideMenu = true;
         CanvasHelper.ActiveMenu = MenuType.None;
+        RefreshUI();
     }
     #region UI Sliders Changed
     private void UI_DurabilitySlider_Changed(float val)
