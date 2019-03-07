@@ -140,7 +140,7 @@ public class YourBalance : Mod
     // UI
     IEnumerator LoadBundle()
     {
-        var uwr = UnityWebRequestAssetBundle.GetAssetBundle("https://akitake.s-ul.eu/O5Zixpok");
+        var uwr = UnityWebRequestAssetBundle.GetAssetBundle("https://github.com/AkitakeKun/RaftMods/raw/master/RaftMods/yourbalance.assets");
         yield return uwr.SendWebRequest();
 
         // Get an asset from the bundle and instantiate it.
