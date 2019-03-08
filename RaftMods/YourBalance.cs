@@ -38,7 +38,6 @@ public class YourBalance : Mod
     private List<Text> UI_slidersText = new List<Text>();
     private List<Toggle> UI_checkboxes = new List<Toggle>();
 
-
     // Defaults
     private Dictionary<int, int> defaultStackSizes = new Dictionary<int, int>();
     private Dictionary<int, int> defaultMaxUses = new Dictionary<int, int>();
