@@ -15,7 +15,7 @@ using UnityEngine.UI;
 [ModAuthor("Akitake")]
 [ModIconUrl("https://i.imgur.com/IJ8lgzF.png")]
 [ModWallpaperUrl("https://i.imgur.com/oJn8uZi.png")]
-[ModVersion("2.0.0")]
+[ModVersion("2.0.1")]
 [RaftVersion("Update 9 (3602784)")]
 public class YourBalance : Mod
 {
