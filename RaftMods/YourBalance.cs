@@ -305,6 +305,7 @@ public class YourBalance : Mod
     }
     public void SetHunger(int multiplier)
     {
+        multiplier *= -1;
         float adjustedRate;
         if (multiplier != 0)
             adjustedRate = (multiplier > 0) ? (defaultHungerRate / multiplier) : (defaultHungerRate * (Math.Abs(multiplier) + 1));
@@ -317,6 +318,7 @@ public class YourBalance : Mod
     }
     public void SetThirst(int multiplier)
     {
+        multiplier *= -1;
         float adjustedRate;
         if (multiplier != 0)
             adjustedRate = (multiplier > 0) ? (defaultThirstRate / multiplier) : (defaultThirstRate * (Math.Abs(multiplier) + 1));
