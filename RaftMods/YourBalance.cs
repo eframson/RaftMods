@@ -51,13 +51,13 @@ public class YourBalance : Mod
     // Misc
     private Semih_Network network = ComponentManager<Semih_Network>.Value;
     private Rect windowRect = new Rect(20, 20, 300, 500);
-    private bool hideMenu = true;
 
     // Console stuff
     public static string modColor = "#FE9A4C";
     public static string modPrefix = "[" + Utils.Colorize("YourBalance", modColor) + "] ";
     #endregion
 
+    #region Start/Update
     public void Start()
     {
         if (instance != null) { throw new Exception("YourBalance singleton was already set"); }
@@ -80,22 +80,20 @@ public class YourBalance : Mod
             defaultMaxUses.Add(item.UniqueIndex, item.MaxUses);
         }
 
-        #region UI Setup
-        // Load Bundle
-        if (File.Exists("mods/ModData/yourbalance.assets"))
-        {
-            menuBundle = AssetBundle.LoadFromFile("mods/ModData/yourbalance.assets");
-            UISetup();
-        }
-        else
-        {
-            StartCoroutine(LoadBundle());
-        }
+        RConsole.registerCommand(typeof(YourBalance), "Toggles on/off YourBalance's mod menu.", "ybmenu", ToggleUI);
 
-        RConsole.Log(modPrefix + "loaded!");
-        #endregion
+        StartCoroutine(LoadBundle());
     }
+    public void Update()
+    {
+        if (SceneManager.GetActiveScene().name != network.gameSceneName) { return; }
+        if (menu == null || !menu.activeSelf) return;
+        if (Input.GetKeyDown(KeyCode.Escape))
+            HideUI();
+    }
+    #endregion
 
+    #region Events
     public void OnModUnload()
     {
         RConsole.Log(modPrefix + "unloaded!");
@@ -105,30 +103,11 @@ public class YourBalance : Mod
         harmony.UnpatchAll(harmonyID);
         Destroy(gameObject);
     }
-
     public void OnLeaveGame()
     {
         StopAllCoroutines();
     }
-
-    public void Update()
-    {
-        if (SceneManager.GetActiveScene().name != network.gameSceneName) { return; }
-        if (menu == null) { return; }
-        if (Input.GetKeyDown(KeyCode.F11))
-        {
-            if (hideMenu)
-            {
-                ShowUI();
-            }
-            else
-            {
-                HideUI();
-            }
-        }
-    }
-
-    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name == network.gameSceneName)
         {
@@ -137,15 +116,27 @@ public class YourBalance : Mod
             RConsole.Log(modPrefix + "Scene " + scene.name + " loaded.");
         }
     }
+    #endregion
 
-    // UI
+    #region UI/Bundle Setup
     IEnumerator LoadBundle()
     {
-        var uwr = UnityWebRequestAssetBundle.GetAssetBundle("https://github.com/AkitakeKun/RaftMods/raw/master/RaftMods/yourbalance.assets");
-        yield return uwr.SendWebRequest();
+        // Load Bundle
+        if (File.Exists(Directory.GetCurrentDirectory() + "\\mods\\ModData\\yourbalance.assets"))
+        {
+            menuBundle = AssetBundle.LoadFromFile(Directory.GetCurrentDirectory() + "\\mods\\ModData\\yourbalance.assets");
+            RConsole.Log(modPrefix + "Loaded menu bundle from local file.");
+        }
+        else
+        {
+            UnityWebRequest uwr = UnityWebRequestAssetBundle.GetAssetBundle("https://github.com/AkitakeKun/RaftMods/raw/master/RaftMods/yourbalance.assets");
+            yield return uwr.SendWebRequest();
 
-        // Get an asset from the bundle and instantiate it.
-        menuBundle = DownloadHandlerAssetBundle.GetContent(uwr);
+            // Get an asset from the bundle and instantiate it.
+            menuBundle = DownloadHandlerAssetBundle.GetContent(uwr);
+            RConsole.Log(modPrefix + "Loaded menu bundle from remote repository.");
+        }
+
         var loadAsset = menuBundle.LoadAssetAsync<GameObject>("YourBalance_Canvas");
         yield return loadAsset.isDone;
 
@@ -173,16 +164,11 @@ public class YourBalance : Mod
         foreach (string sliderName in sliders)
         {
             var slider = menu.transform.Find("MainBG").GetComponentsInChildren<Image>().Where(x => x.name == sliderName).FirstOrDefault().GetComponentInChildren<Slider>();
-            var sliderText = slider.GetComponentInChildren<Text>();
+            slider.gameObject.AddComponent<SetHandleNumber>();
+            var sliderText = slider.GetComponentsInChildren<Text>().Where(x => x.name != "Description").FirstOrDefault();
             UI_sliders.Add(slider);
             UI_slidersText.Add(sliderText);
         }
-        UI_sliders[0].onValueChanged.AddListener(UI_DurabilitySlider_Changed);
-        UI_sliders[1].onValueChanged.AddListener(UI_StackSizeSlider_Changed);
-        UI_sliders[2].onValueChanged.AddListener(UI_HungerSlider_Changed);
-        UI_sliders[3].onValueChanged.AddListener(UI_ThirstSlider_Changed);
-        UI_sliders[4].onValueChanged.AddListener(UI_SharkDmgSlider_Changed);
-        UI_sliders[5].onValueChanged.AddListener(UI_SharkAtkRateSlider_Changed);
 
         // Checkboxes setup
         List<string> checkboxes = new List<string>
@@ -199,20 +185,16 @@ public class YourBalance : Mod
             var toggle = menu.transform.Find("MainBG").GetComponentsInChildren<Image>().Where(x => x.name == checkbox).FirstOrDefault().GetComponentInChildren<Toggle>();
             UI_checkboxes.Add(toggle);
         }
-        UI_checkboxes[0].onValueChanged.AddListener(UI_SharkPlayerBitingToggle_Changed);
-        UI_checkboxes[1].onValueChanged.AddListener(UI_SharkRaftBitingToggle_Changed);
-        UI_checkboxes[2].onValueChanged.AddListener(UI_SharkRespawnToggle_Changed);
-        UI_checkboxes[3].onValueChanged.AddListener(UI_DolphinJumpToggle_Changed);
-        UI_checkboxes[4].onValueChanged.AddListener(UI_FallDamageToggle_Changed);
-        UI_checkboxes[5].onValueChanged.AddListener(UI_DevCheatsToggle_Changed);
     }
+    #endregion
+    #region Show/Hide/Refresh UI
     public void RefreshUI()
     {
         UI_sliders[0].value = settings.durabilityMultiplier;
         UI_sliders[1].value = settings.stackSizeMultiplier;
         UI_sliders[2].value = settings.foodDecrementRateMultiplier;
         UI_sliders[3].value = settings.thirstDecrementRateMultiplier;
-        UI_sliders[4].value = settings.sharkDamageMulitplier;
+        UI_sliders[4].value = settings.sharkDamageMultiplier;
         UI_sliders[5].value = settings.biteRaftIntervalMultiplier;
 
         UI_checkboxes[0].isOn = settings.sharkDisabled;
@@ -222,11 +204,20 @@ public class YourBalance : Mod
         UI_checkboxes[4].isOn = settings.fallDmgDisabled;
         UI_checkboxes[5].isOn = settings.cheatsEnabled;
     }
+    public void ToggleUI()
+    {
+        if (SceneManager.GetActiveScene().name != network.gameSceneName) { return; }
+        if (menu == null) { return; }
+        if (!menu.activeSelf)
+            ShowUI();
+        else
+            HideUI();
+    }
     public void ShowUI()
     {
+        RefreshUI();
         menu.SetActive(true);
         newSettings = new ModSettings(settings);
-        hideMenu = false;
         Helper.SetCursorVisibleAndLockState(true, CursorLockMode.Confined);
         CanvasHelper.ActiveMenu = MenuType.TextWriter;
     }
@@ -235,103 +226,27 @@ public class YourBalance : Mod
         menu.SetActive(false);
         Helper.SetCursorVisibleAndLockState(false, CursorLockMode.Locked);
         newSettings = new ModSettings(settings);
-        hideMenu = true;
         CanvasHelper.ActiveMenu = MenuType.None;
-        RefreshUI();
-    }
-    #region UI Sliders Changed
-    private void UI_DurabilitySlider_Changed(float val)
-    {
-        newSettings.durabilityMultiplier = Convert.ToInt32(val);
-        if (newSettings.durabilityMultiplier == 0) { newSettings.durabilityMultiplier = 1; }
-        UI_slidersText[0].text = newSettings.durabilityMultiplier.ToString();
-    }
-    private void UI_StackSizeSlider_Changed(float val)
-    {
-        newSettings.stackSizeMultiplier = Convert.ToInt32(val);
-        if (newSettings.stackSizeMultiplier == 0) { newSettings.stackSizeMultiplier = 1; }
-        UI_slidersText[1].text = newSettings.stackSizeMultiplier.ToString();
-    }
-    private void UI_HungerSlider_Changed(float val)
-    {
-        newSettings.foodDecrementRateMultiplier = Convert.ToInt32(val);
-        if (newSettings.foodDecrementRateMultiplier == 0) { newSettings.foodDecrementRateMultiplier = 1; }
-        UI_slidersText[2].text = newSettings.foodDecrementRateMultiplier.ToString();
-    }
-    private void UI_ThirstSlider_Changed(float val)
-    {
-        newSettings.thirstDecrementRateMultiplier = Convert.ToInt32(val);
-        if (newSettings.thirstDecrementRateMultiplier == 0) { newSettings.thirstDecrementRateMultiplier = 1; }
-        UI_slidersText[3].text = newSettings.thirstDecrementRateMultiplier.ToString();
-    }
-    private void UI_SharkDmgSlider_Changed(float val)
-    {
-        newSettings.sharkDamageMulitplier = Convert.ToInt32(val);
-        if (newSettings.sharkDamageMulitplier == 0) { newSettings.sharkDamageMulitplier = 1; }
-        UI_slidersText[4].text = newSettings.sharkDamageMulitplier.ToString();
-    }
-    private void UI_SharkAtkRateSlider_Changed(float val)
-    {
-        newSettings.biteRaftIntervalMultiplier = Convert.ToInt32(val);
-        if (newSettings.biteRaftIntervalMultiplier == 0) { newSettings.biteRaftIntervalMultiplier = 1; }
-        UI_slidersText[5].text = newSettings.biteRaftIntervalMultiplier.ToString();
     }
     #endregion
-    #region UI Toggles Changed
-    private void UI_SharkPlayerBitingToggle_Changed(bool val) { newSettings.sharkDisabled = val; }
-    private void UI_SharkRaftBitingToggle_Changed(bool val) { newSettings.disableSharkBitingRaft = val; }
-    private void UI_SharkRespawnToggle_Changed(bool val) { newSettings.disableFastSharkSpawn = val; }
-    private void UI_DolphinJumpToggle_Changed(bool val) { newSettings.enableDolphinJumping = val; }
-    private void UI_FallDamageToggle_Changed(bool val) { newSettings.fallDmgDisabled = val; }
-    private void UI_DevCheatsToggle_Changed(bool val) { newSettings.cheatsEnabled = val; }
-    #endregion
 
-    public void UpdateSettings()
-    {
-        if (settings.durabilityMultiplier != newSettings.durabilityMultiplier) { SetDurability(newSettings.durabilityMultiplier); }
-        if (settings.stackSizeMultiplier != newSettings.stackSizeMultiplier) { SetStackSize(newSettings.stackSizeMultiplier); }
-        if (settings.foodDecrementRateMultiplier != newSettings.foodDecrementRateMultiplier) { SetHunger(newSettings.foodDecrementRateMultiplier); }
-        if (settings.thirstDecrementRateMultiplier != newSettings.thirstDecrementRateMultiplier) { SetThirst(newSettings.thirstDecrementRateMultiplier); }
-        if (settings.sharkDamageMulitplier != newSettings.sharkDamageMulitplier) { SetSharkAttackDamage(newSettings.sharkDamageMulitplier); }
-        if (settings.biteRaftIntervalMultiplier != newSettings.biteRaftIntervalMultiplier) { SetSharkAttackInterval(newSettings.biteRaftIntervalMultiplier); }
-        if (settings.cheatsEnabled != newSettings.cheatsEnabled) { SetCheats(newSettings.cheatsEnabled); }
-        settings = new ModSettings(newSettings);
-        SaveSettings();
-        RefreshUI();
-    }
-
-    public IEnumerator ForceSettings()
-    {
-        yield return new WaitForSeconds(5);
-        SetDurability(settings.durabilityMultiplier);
-        SetStackSize(settings.stackSizeMultiplier);
-        SetHunger(settings.foodDecrementRateMultiplier);
-        SetThirst(settings.thirstDecrementRateMultiplier);
-        SetSharkAttackDamage(settings.sharkDamageMulitplier);
-        SetSharkAttackInterval(settings.biteRaftIntervalMultiplier);
-        RefreshUI();
-    }
-
-    public void SetCheats(bool value)
-    {
-        GameManager.UseCheats = value;
-        SaveSettings();
-        RConsole.Log(modPrefix + "Developer cheats are " + Utils.Colorize((GameManager.UseCheats ? "enabled" : "disabled"), modColor));
-    }
-
+    #region Set Functions
     public void SetDurability(int multiplier)
     {
         List<Item_Base> items = ItemManager.GetAllItems();
         foreach (var item in items)
         {
             int defaultSize = defaultMaxUses[item.UniqueIndex];
+            int adjustedSize;
             if (defaultSize <= 1) { continue; } // Avoid changing durability of items that "dont have" durability (like cups)
-            int adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            if (multiplier != 0)
+                adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            else
+                adjustedSize = defaultSize;
             PrivateValueAccessor.GetPrivateFieldInfo(typeof(Item_Base), "maxUses").SetValue(item, adjustedSize);
         }
         RConsole.Log(modPrefix + "Durability multiplier set.");
     }
-
     public void SetStackSize(int multiplier)
     {
         List<Item_Base> items = ItemManager.GetAllItems();
@@ -340,7 +255,11 @@ public class YourBalance : Mod
         {
             int defaultSize = defaultStackSizes[item.UniqueIndex];
             if (defaultSize <= 1) { continue; } // Avoid changing stack size of items that shouldn't stack (like cups)
-            int adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            int adjustedSize;
+            if (multiplier != 0)
+                adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            else
+                adjustedSize = defaultSize;
             ItemInstance_Inventory inventory = item.settings_Inventory;
             PrivateValueAccessor.GetPrivateFieldInfo(typeof(ItemInstance_Inventory), "stackSize").SetValue(inventory, adjustedSize);
         }
@@ -354,7 +273,11 @@ public class YourBalance : Mod
             Item_Base item = slot.itemInstance.baseItem;
             int defaultSize = defaultStackSizes[item.UniqueIndex];
             if (defaultSize <= 1) { continue; } // Avoid changing stack size of items that shouldn't stack (like cups)
-            int adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            int adjustedSize;
+            if (multiplier != 0)
+                adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+            else
+                adjustedSize = defaultSize;
             ItemInstance_Inventory settings = slot.itemInstance.settings_Inventory;
             PrivateValueAccessor.GetPrivateFieldInfo(typeof(ItemInstance_Inventory), "stackSize").SetValue(settings, adjustedSize);
         }
@@ -370,36 +293,54 @@ public class YourBalance : Mod
                 Item_Base item = slot.itemInstance.baseItem;
                 int defaultSize = defaultStackSizes[item.UniqueIndex];
                 if (defaultSize <= 1) { continue; } // Avoid changing stack size of items that shouldn't stack (like cups)
-                int adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+                int adjustedSize;
+                if (multiplier != 0)
+                    adjustedSize = (multiplier > 0) ? (defaultSize * multiplier) : (defaultSize / (Math.Abs(multiplier) + 1));
+                else
+                    adjustedSize = defaultSize;
                 ItemInstance_Inventory settings = slot.itemInstance.settings_Inventory;
                 PrivateValueAccessor.GetPrivateFieldInfo(typeof(ItemInstance_Inventory), "stackSize").SetValue(settings, adjustedSize);
             }
         }
         RConsole.Log(modPrefix + "Storage items stack size set.");
     }
-
     public void SetHunger(int multiplier)
     {
-        var adjustedRate = (multiplier > 0) ? (defaultHungerRate / multiplier) : (defaultHungerRate * (Math.Abs(multiplier) + 1));
+        float adjustedRate;
+        if (multiplier != 0)
+            adjustedRate = (multiplier > 0) ? (defaultHungerRate / multiplier) : (defaultHungerRate * (Math.Abs(multiplier) + 1));
+        else
+            adjustedRate = defaultHungerRate;
         var hunger = network.GetLocalPlayer().Stats.stat_hunger;
         PrivateValueAccessor.GetPrivateFieldInfo(typeof(Stat_Hunger), "hungerLostPerSecondDefault").SetValue(hunger.Bonus, adjustedRate);
         PrivateValueAccessor.GetPrivateFieldInfo(typeof(Stat_Hunger), "hungerLostPerSecondDefault").SetValue(hunger.Normal, adjustedRate);
         RConsole.Log(modPrefix + "Hunger rate set.");
     }
-
     public void SetThirst(int multiplier)
     {
-        var adjustedRate = (multiplier > 0) ? (defaultThirstRate / multiplier) : (defaultThirstRate * (Math.Abs(multiplier) + 1));
+        float adjustedRate;
+        if (multiplier != 0)
+            adjustedRate = (multiplier > 0) ? (defaultThirstRate / multiplier) : (defaultThirstRate * (Math.Abs(multiplier) + 1));
+        else
+            adjustedRate = defaultThirstRate;
         Stat_Thirst thirst = network.GetLocalPlayer().Stats.stat_thirst;
         PrivateValueAccessor.GetPrivateFieldInfo(typeof(Stat_Thirst), "thirstLostPerSecondDefault").SetValue(thirst, adjustedRate);
         RConsole.Log(modPrefix + "Thirst rate set.");
     }
-
-    public void SetSharkAttackDamage(int multipler)
+    public void SetSharkAttackDamage(int multiplier)
     {
         var sharks = FindObjectsOfType<Shark>();
-        int adjustedRaftDamage = (multipler > 0) ? (defaultSharkDamageRaft / multipler) : (defaultSharkDamageRaft * (Math.Abs(multipler) + 1));
-        int adjustedPlayerDamage = (multipler > 0) ? (defaultSharkDamageRaft / multipler) : (defaultSharkDamagePerson * (Math.Abs(multipler) + 1));
+        int adjustedRaftDamage, adjustedPlayerDamage;
+        if (multiplier != 0)
+        {
+            adjustedRaftDamage = (multiplier > 0) ? (defaultSharkDamageRaft / multiplier) : (defaultSharkDamageRaft * (Math.Abs(multiplier) + 1));
+            adjustedPlayerDamage = (multiplier > 0) ? (defaultSharkDamagePerson / multiplier) : (defaultSharkDamagePerson * (Math.Abs(multiplier) + 1));
+        }
+        else
+        {
+            adjustedRaftDamage = defaultSharkDamageRaft;
+            adjustedPlayerDamage = defaultSharkDamagePerson;
+        }
         foreach (Shark shark in sharks)
         {
             PrivateValueAccessor.GetPrivateFieldInfo(typeof(Shark), "biteRaftDamage").SetValue(shark, adjustedRaftDamage);
@@ -407,38 +348,29 @@ public class YourBalance : Mod
         }
         RConsole.Log(modPrefix + "Shark damage set.");
     }
-
-    public void SetSharkAttackInterval(int multipler)
+    public void SetSharkAttackInterval(int multiplier)
     {
         var sharks = FindObjectsOfType<Shark>();
-        float adjustedInterval = (multipler > 0) ? (defaultBiteRaftInterval * multipler) : (defaultBiteRaftInterval / (Math.Abs(multipler) + 1));
+        float adjustedInterval;
+        if (multiplier != 0)
+            adjustedInterval = (multiplier > 0) ? (defaultBiteRaftInterval * multiplier) : (defaultBiteRaftInterval / (Math.Abs(multiplier) + 1));
+        else
+            adjustedInterval = defaultBiteRaftInterval;
         foreach (Shark shark in sharks)
         {
             PrivateValueAccessor.GetPrivateFieldInfo(typeof(Shark), "searchBlockInterval").SetValue(shark, adjustedInterval);
         }
         RConsole.Log(modPrefix + "Shark bite raft interval set.");
     }
-
-    public string FormatLabel(string body, string @default, string smaller, string larger, int value)
+    public void SetCheats(bool value)
     {
-        if (value == 1)
-        {
-            return String.Format(body, @default);
-        }
-        string tail = (value > 1) ? larger : smaller;
-        return String.Format(body, String.Format(tail, Math.Abs(value)));
+        GameManager.UseCheats = value;
+        SaveSettings();
+        RConsole.Log(modPrefix + "Developer cheats are " + Utils.Colorize((GameManager.UseCheats ? "enabled" : "disabled"), modColor));
     }
+    #endregion
 
-    public string FormatLabel(string body, string @default, string smaller, string larger, float value)
-    {
-        if (value == 1)
-        {
-            return String.Format(body, @default);
-        }
-        string tail = (value > 1) ? larger : smaller;
-        return String.Format(body, String.Format(tail, Math.Abs(value)));
-    }
-
+    #region Settings Functions
     public ModSettings LoadSettings()
     {
         ModSettings savedSettings = new ModSettings();
@@ -448,7 +380,6 @@ public class YourBalance : Mod
         }
         return savedSettings;
     }
-
     public void SaveSettings()
     {
         RConsole.Log(modPrefix + "Saving settings");
@@ -463,10 +394,78 @@ public class YourBalance : Mod
             RConsole.Log(modPrefix + Utils.Colorize("Settings were unable to be saved to file " + settingsPath, "#FF0000"));
         }
     }
+    public void UpdateSettings()
+    {
+        newSettings.durabilityMultiplier = (int)UI_sliders[0].value;
+        newSettings.stackSizeMultiplier = (int)UI_sliders[1].value;
+        newSettings.foodDecrementRateMultiplier = (int)UI_sliders[2].value;
+        newSettings.thirstDecrementRateMultiplier = (int)UI_sliders[3].value;
+        newSettings.sharkDamageMultiplier = (int)UI_sliders[4].value;
+        newSettings.biteRaftIntervalMultiplier = (int)UI_sliders[5].value;
+
+        newSettings.sharkDisabled = UI_checkboxes[0].isOn;
+        newSettings.disableSharkBitingRaft = UI_checkboxes[1].isOn;
+        newSettings.disableFastSharkSpawn = UI_checkboxes[2].isOn;
+        newSettings.enableDolphinJumping = UI_checkboxes[3].isOn;
+        newSettings.fallDmgDisabled = UI_checkboxes[4].isOn;
+        newSettings.cheatsEnabled = UI_checkboxes[5].isOn;
+
+        if (settings.durabilityMultiplier != newSettings.durabilityMultiplier) { SetDurability(newSettings.durabilityMultiplier); }
+        if (settings.stackSizeMultiplier != newSettings.stackSizeMultiplier) { SetStackSize(newSettings.stackSizeMultiplier); }
+        if (settings.foodDecrementRateMultiplier != newSettings.foodDecrementRateMultiplier) { SetHunger(newSettings.foodDecrementRateMultiplier); }
+        if (settings.thirstDecrementRateMultiplier != newSettings.thirstDecrementRateMultiplier) { SetThirst(newSettings.thirstDecrementRateMultiplier); }
+        if (settings.sharkDamageMultiplier != newSettings.sharkDamageMultiplier) { SetSharkAttackDamage(newSettings.sharkDamageMultiplier); }
+        if (settings.biteRaftIntervalMultiplier != newSettings.biteRaftIntervalMultiplier) { SetSharkAttackInterval(newSettings.biteRaftIntervalMultiplier); }
+        if (settings.cheatsEnabled != newSettings.cheatsEnabled) { SetCheats(newSettings.cheatsEnabled); }
+
+        settings = new ModSettings(newSettings);
+        SaveSettings();
+        RefreshUI();
+        FindObjectOfType<RNotify>().AddNotification(RNotify.NotificationType.normal, "YourBalance - Settings applied", 2, RNotify.CheckSprite);
+    }
+    public IEnumerator ForceSettings()
+    {
+        yield return new WaitForSeconds(5);
+        SetDurability(settings.durabilityMultiplier);
+        SetStackSize(settings.stackSizeMultiplier);
+        SetHunger(settings.foodDecrementRateMultiplier);
+        SetThirst(settings.thirstDecrementRateMultiplier);
+        SetSharkAttackDamage(settings.sharkDamageMultiplier);
+        SetSharkAttackInterval(settings.biteRaftIntervalMultiplier);
+        SetCheats(settings.cheatsEnabled);
+        RefreshUI();
+    }
+    #endregion
 }
 
 #region Child Classes
-class Utils
+// Unity Component required for sliders
+public class SetHandleNumber : MonoBehaviour
+{
+    private Slider slider;
+    private Text handleText;
+
+    void Start()
+    {
+        slider = GetComponent<Slider>();
+        slider.onValueChanged.AddListener(OnSliderChanged);
+        handleText = slider.GetComponentsInChildren<Text>().Where(x => x.name == "HandleText").FirstOrDefault();
+        handleText.text = GetHandleText(slider.value);
+    }
+
+    private void OnSliderChanged(float value) { handleText.text = GetHandleText(value); }
+    private string GetHandleText(float value)
+    {
+        string text = value < 0 ? "%" : "x";
+        if (value == 0)
+            text = "";
+        text += Math.Abs(value).ToString();
+        return text;
+    }
+}
+
+// Various helper methods
+public class Utils
 {
     private static List<string> positiveBools = new List<string>() { "true", "1", "yes", "y" };
     private static List<string> negativeBools = new List<string>() { "false", "0", "no", "n" };
@@ -506,6 +505,7 @@ class Utils
     #endregion
 }
 
+// PVA
 public class PrivateValueAccessor
 {
     public static BindingFlags Flags = BindingFlags.Instance
@@ -533,6 +533,7 @@ public class PrivateValueAccessor
     }
 }
 
+// Settings Type
 [Serializable]
 public class ModSettings
 {
@@ -542,7 +543,7 @@ public class ModSettings
     public int thirstDecrementRateMultiplier;
     public int durabilityMultiplier;
     public int stackSizeMultiplier;
-    public int sharkDamageMulitplier;
+    public int sharkDamageMultiplier;
     public int biteRaftIntervalMultiplier;
     public bool disableSharkBitingRaft;
     public bool disableFastSharkSpawn;
@@ -557,7 +558,7 @@ public class ModSettings
         thirstDecrementRateMultiplier = 1;
         durabilityMultiplier = 1;
         stackSizeMultiplier = 1;
-        sharkDamageMulitplier = 1;
+        sharkDamageMultiplier = 1;
         biteRaftIntervalMultiplier = 1;
         disableSharkBitingRaft = false;
         disableFastSharkSpawn = false;
@@ -572,7 +573,7 @@ public class ModSettings
         thirstDecrementRateMultiplier = clone.thirstDecrementRateMultiplier;
         durabilityMultiplier = clone.durabilityMultiplier;
         stackSizeMultiplier = clone.stackSizeMultiplier;
-        sharkDamageMulitplier = clone.sharkDamageMulitplier;
+        sharkDamageMultiplier = clone.sharkDamageMultiplier;
         biteRaftIntervalMultiplier = clone.biteRaftIntervalMultiplier;
         disableSharkBitingRaft = clone.disableSharkBitingRaft;
         disableFastSharkSpawn = clone.disableFastSharkSpawn;
@@ -655,7 +656,7 @@ static class SharkRespawnPatch
             int extraTime = UnityEngine.Random.Range(5, 10);
             timeDelay = extraTime * 60;
         }
-        YourBalance.instance.SetSharkAttackDamage(YourBalance.settings.sharkDamageMulitplier);
+        YourBalance.instance.SetSharkAttackDamage(YourBalance.settings.sharkDamageMultiplier);
         YourBalance.instance.SetSharkAttackInterval(YourBalance.settings.biteRaftIntervalMultiplier);
     }
 }
