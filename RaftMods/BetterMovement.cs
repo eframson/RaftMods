@@ -65,8 +65,10 @@ public class BetterMovement : Mod
 
     public void Update()
     {
+        if (CanvasHelper.ActiveMenu != MenuType.None) return;
         var ply = RAPI.getLocalPlayer();
-        if (SceneManager.GetActiveScene().name != network.gameSceneName || ply == null) { return; }
+        if (SceneManager.GetActiveScene().name != network.gameSceneName || ply == null) return;
+
         var localPlayerTPS = ply.currentModel.thirdPersonSettings;
         if (!localPlayerTPS.ThirdPersonState) { return; }
 
