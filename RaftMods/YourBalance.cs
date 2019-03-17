@@ -15,7 +15,7 @@ using UnityEngine.UI;
 [ModAuthor("Akitake")]
 [ModIconUrl("https://i.imgur.com/IJ8lgzF.png")]
 [ModWallpaperUrl("https://i.imgur.com/oJn8uZi.png")]
-[ModVersion("2.0.1")]
+[ModVersion("2.0.2")]
 [RaftVersion("Update 9 (3602784)")]
 public class YourBalance : Mod
 {
@@ -37,6 +37,7 @@ public class YourBalance : Mod
     private List<Slider> UI_sliders = new List<Slider>();
     private List<Text> UI_slidersText = new List<Text>();
     private List<Toggle> UI_checkboxes = new List<Toggle>();
+    private Dropdown UI_dropdown;
 
     // Defaults
     private Dictionary<int, int> defaultStackSizes = new Dictionary<int, int>();
@@ -65,7 +66,7 @@ public class YourBalance : Mod
         harmony = HarmonyInstance.Create(harmonyID);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-        settingsPath = Directory.GetCurrentDirectory() + "\\mods\\ModData\\YourBalance.json";
+        settingsPath = Path.Combine(Directory.GetCurrentDirectory(), "mods", "ModData", "YourBalance.json");
         settings = LoadSettings();
         if (SceneManager.GetActiveScene().name == network.gameSceneName)
             StartCoroutine(ForceSettings());
@@ -121,9 +122,9 @@ public class YourBalance : Mod
     IEnumerator LoadBundle()
     {
         // Load Bundle
-        if (File.Exists(Directory.GetCurrentDirectory() + "\\mods\\ModData\\yourbalance.assets"))
+        if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "mods", "ModData", "yourbalance.assets")))
         {
-            menuBundle = AssetBundle.LoadFromFile(Directory.GetCurrentDirectory() + "\\mods\\ModData\\yourbalance.assets");
+            menuBundle = AssetBundle.LoadFromFile(Path.Combine(Directory.GetCurrentDirectory(), "mods", "ModData", "yourbalance.assets"));
             RConsole.Log(modPrefix + "Loaded menu bundle from local file.");
         }
         else
@@ -184,6 +185,9 @@ public class YourBalance : Mod
             var toggle = menu.transform.Find("MainBG").GetComponentsInChildren<Image>().Where(x => x.name == checkbox).FirstOrDefault().GetComponentInChildren<Toggle>();
             UI_checkboxes.Add(toggle);
         }
+
+        // Dropdown setup
+        UI_dropdown = menu.transform.Find("MainBG").GetComponentsInChildren<Image>().Where(x => x.name == "GameMode").FirstOrDefault().GetComponentInChildren<Dropdown>();
     }
     #endregion
     #region Show/Hide/Refresh UI
@@ -202,6 +206,16 @@ public class YourBalance : Mod
         UI_checkboxes[3].isOn = settings.enableDolphinJumping;
         UI_checkboxes[4].isOn = settings.fallDmgDisabled;
         UI_checkboxes[5].isOn = settings.cheatsEnabled;
+
+        string CurrentGM = GameModeValueManager.GetCurrentGameModeValue().name;
+        int CurrentGM_N = -1;
+        if (CurrentGM.Contains("Creative")) { CurrentGM_N = 0; }
+        if (CurrentGM.Contains("Peaceful")) { CurrentGM_N = 1; }
+        if (CurrentGM.Contains("Easy")) { CurrentGM_N = 2; }
+        if (CurrentGM.Contains("Normal")) { CurrentGM_N = 3; }
+        if (CurrentGM.Contains("Hardcore")) { CurrentGM_N = 4; }
+        if (CurrentGM_N != -1)
+            UI_dropdown.value = CurrentGM_N;
     }
     public void ToggleUI()
     {
@@ -369,6 +383,45 @@ public class YourBalance : Mod
         SaveSettings();
         RConsole.Log(modPrefix + "Developer cheats are " + Utils.Colorize((GameManager.UseCheats ? "enabled" : "disabled"), modColor));
     }
+    public void SetGameMode(int value)
+    {
+        string newGM = "";
+        switch (value)
+        {
+            case 0:
+                {
+                    newGM = "Creative";
+                    break;
+                }
+            case 1:
+                {
+                    newGM = "Peaceful";
+                    break;
+                }
+            case 2:
+                {
+                    newGM = "Easy";
+                    break;
+                }
+            case 3:
+                {
+                    newGM = "Normal";
+                    break;
+                }
+            case 4:
+                {
+                    newGM = "Hardcore";
+                    break;
+                }
+            default: break;
+        }
+        GameMode mode;
+        if (newGM != "" && !GameModeValueManager.GetCurrentGameModeValue().name.Contains(newGM) && GameMode.TryParse(newGM, out mode))
+        {
+            GameModeValueManager.SelectCurrentGameMode(mode);
+            FindObjectOfType<RNotify>().AddNotification(RNotify.NotificationType.normal, string.Format("Gamemode changed to {0}", newGM), 3, RNotify.CheckSprite);
+        }
+    }
     #endregion
 
     #region Settings Functions
@@ -418,6 +471,8 @@ public class YourBalance : Mod
         if (settings.sharkDamageMultiplier != newSettings.sharkDamageMultiplier) { SetSharkAttackDamage(newSettings.sharkDamageMultiplier); }
         if (settings.biteRaftIntervalMultiplier != newSettings.biteRaftIntervalMultiplier) { SetSharkAttackInterval(newSettings.biteRaftIntervalMultiplier); }
         if (settings.cheatsEnabled != newSettings.cheatsEnabled) { SetCheats(newSettings.cheatsEnabled); }
+
+        SetGameMode(UI_dropdown.value);
 
         settings = new ModSettings(newSettings);
         SaveSettings();
